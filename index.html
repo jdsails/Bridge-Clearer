@@ -4,11 +4,13 @@
 <head>
   <meta charset="UTF-8">
   <title>Bridge Clearance Visualiser</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
     body {
       font-family: Arial, sans-serif;
+      margin: 10px;
       background: #f4f6f8;
-      margin: 20px;
     }
 
     h1 {
@@ -17,52 +19,55 @@
 
     .container {
       display: flex;
-      gap: 30px;
+      gap: 15px;
+      flex-wrap: wrap;
     }
 
     .inputs {
-      width: 320px;
+      flex: 1 1 280px;
       background: white;
-      padding: 15px;
+      padding: 12px;
       border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
     }
 
-    .inputs label {
+    svg {
+      flex: 2 1 500px;
+      width: 100%;
+      height: 70vh;
+      max-height: 800px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (max-width: 768px) {
+      svg {
+        height: 55vh;
+      }
+    }
+
+    label {
       font-size: 13px;
       display: block;
-      margin-top: 10px;
+      margin-top: 8px;
     }
 
-    .inputs input {
+    input {
       width: 100%;
-      padding: 6px;
+      padding: 5px;
       margin-top: 3px;
     }
 
     .result {
-      margin-top: 15px;
+      margin-top: 8px;
       font-weight: bold;
     }
 
-    svg {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.08);
-    }
-
     .warning {
-      margin-top: 20px;
-      font-size: 14px;
+      margin-top: 15px;
       color: darkred;
-    }
-
-    .tick {
-      fill: green;
-    }
-
-    .cross {
-      fill: red;
+      font-size: 13px;
     }
   </style>
 </head>
@@ -70,168 +75,255 @@
 <body>
 
   <h1>Bridge Clearance Visualiser</h1>
-  <p>All vertical distances are referenced to LAT (Lowest Astronomical Tide).</p>
+  <p>All heights referenced to LAT (0.0m)</p>
 
   <div class="container">
 
     <div class="inputs">
-      <label>Bridge Clearance (above HAT) (m)
-        <input type="number" id="bridgeClearance" value="5">
-      </label>
+
+      <label>Bridge Clearance above HAT (m)
+        <input type="number" id="bridgeClearance" value="10"></label>
 
       <label>HAT above LAT (m)
-        <input type="number" id="hat" value="2">
-      </label>
+        <input type="number" id="hat" value="3"></label>
 
-      <label>Height of Tide (HOT) above LAT (m)
-        <input type="number" id="hot" value="1">
-      </label>
+      <label>Height of Tide (HOT) (m)
+        <input type="number" id="hot" value="2"></label>
 
-      <label>Air Draft of Vessel (m)
-        <input type="number" id="airDraft" value="4">
-      </label>
+      <label>Air Draft (m)
+        <input type="number" id="airDraft" value="18"></label>
 
-      <label>Safety Clearance (Air) (m)
-        <input type="number" id="airSafety" value="0.3">
-      </label>
+      <label>Air Safety Clearance (m)
+        <input type="number" id="airSafety" value="0.5"></label>
 
-      <label>Draft of Vessel (m)
-        <input type="number" id="draft" value="1.2">
-      </label>
+      <label>Draft (m)
+        <input type="number" id="draft" value="2"></label>
 
-      <label>Safety Depth Required (m)
-        <input type="number" id="depthSafety" value="0.5">
-      </label>
+      <label>Under Keel Safety (m)
+        <input type="number" id="depthSafety" value="0.5"></label>
 
-      <label>Sounding Below Bridge (m)
-        (Negative = drying height)
-        <input type="number" id="sounding" value="2">
-      </label>
+      <label>Sounding (m) (negative = drying height)
+        <input type="number" id="sounding" value="3"></label>
 
       <div class="result" id="bridgeResult"></div>
       <div class="result" id="groundResult"></div>
+
     </div>
 
-    <svg id="diagram" width="600" height="700"></svg>
+    <svg id="diagram"></svg>
 
   </div>
 
   <div class="warning">
-    ⚠ Always check for surge and barometric pressure effects — these can significantly reduce clearance.
+    ⚠ Always check surge and barometric pressure effects — these can reduce clearance.
   </div>
 
   <script>
 
     const svg = document.getElementById("diagram");
-    const scale = 80;   // pixels per metre
-    const midX = 300;
-    const baseY = 600;  // LAT reference position
-
-    const inputs = document.querySelectorAll("input");
-    inputs.forEach(input => input.addEventListener("input", draw));
+    document.querySelectorAll("input").forEach(i => i.addEventListener("input", draw));
 
     function draw() {
 
       svg.innerHTML = "";
 
-      const bridgeClearance = parseFloat(document.getElementById("bridgeClearance").value) || 0;
-      const hat = parseFloat(document.getElementById("hat").value) || 0;
-      const hot = parseFloat(document.getElementById("hot").value) || 0;
-      const airDraft = parseFloat(document.getElementById("airDraft").value) || 0;
-      const airSafety = parseFloat(document.getElementById("airSafety").value) || 0;
-      const draft = parseFloat(document.getElementById("draft").value) || 0;
-      const depthSafety = parseFloat(document.getElementById("depthSafety").value) || 0;
-      const sounding = parseFloat(document.getElementById("sounding").value) || 0;
+      let bridgeClearance = +val("bridgeClearance");
+      let hat = +val("hat");
+      let hot = +val("hot");
+      let airDraft = +val("airDraft");
+      let airSafety = +val("airSafety");
+      let draft = +val("draft");
+      let depthSafety = +val("depthSafety");
+      let sounding = +val("sounding");
 
-      const latY = baseY;
-      const hatY = baseY - hat * scale;
-      const waterY = baseY - hot * scale;
-      const bridgeBottomY = hatY - bridgeClearance * scale;
+      /* ===== Height Limits ===== */
 
-      // LAT line
-      line(50, latY, 550, latY, "black", 2, "LAT");
-
-      // HAT line
-      line(50, hatY, 550, hatY, "orange", 2, "HAT");
-
-      // HOT water
-      wave(50, waterY, 500);
-
-      // Bridge
-      rect(midX - 150, bridgeBottomY, 300, 20, "#555");
-
-      // Boat
-      const boatTopY = waterY - airDraft * scale;
-      const boatBottomY = waterY + draft * scale;
-
-      rect(midX - 40, boatTopY, 80, airDraft * scale, "#444");
-      rect(midX - 60, waterY, 120, draft * scale, "#888");
-
-      // Seabed
-      const seabedY = latY + sounding * scale;
-      line(50, seabedY, 550, seabedY, "#654321", 3);
-
-      // Grounding calculation
-      const availableDepth = sounding + hot;
-      const requiredDepth = draft + depthSafety;
-
-      if (requiredDepth > availableDepth) {
-        result("groundResult", "❌ You'll run aground", "red");
-      } else {
-        result("groundResult", "✅ You shouldn't run aground", "green");
+      if (airDraft > 90) {
+        alert("The tallest ship mast ever installed on a sailing vessel can be found on the superyacht M5 at 90m.");
+        document.getElementById("airDraft").value = 90;
+        airDraft = 90;
       }
 
-      // Bridge clearance calculation
-      const availableAir = bridgeClearance + hat - hot;
-      const requiredAir = airDraft + airSafety;
+      let bridgeTotalHeight = hat + bridgeClearance;
+      if (bridgeTotalHeight > 95) {
+        alert("This bridge exceeds 95m above LAT. At this point you probably don't need this tool 🙂");
+      }
 
-      if (requiredAir > availableAir) {
+      /* ===== Determine Vertical Extents ===== */
+
+      let highestPoint = Math.max(
+        bridgeTotalHeight,
+        hot + airDraft,
+        0
+      );
+
+      let lowestPoint = Math.min(
+        0,
+        hot - draft,
+        sounding,
+        -5
+      );
+
+      let svgHeight = svg.clientHeight;
+      let svgWidth = svg.clientWidth;
+
+      let padding = 40;
+
+      let scale = (svgHeight - padding) / (highestPoint - lowestPoint);
+
+      function y(metres) {
+        return svgHeight - padding - (metres - lowestPoint) * scale;
+      }
+
+      /* ===== Grid (including negatives) ===== */
+
+      for (let m = Math.floor(lowestPoint); m <= Math.ceil(highestPoint); m++) {
+        let yy = y(m);
+        line(0, yy, svgWidth, yy, "#eee", 1);
+        text(5, yy - 2, m + "m", "#999");
+      }
+
+      /* ===== Datum Lines ===== */
+
+      let latY = y(0);
+      let hatY = y(hat);
+      let waterY = y(hot);
+
+      line(0, latY, svgWidth, latY, "black", 2);
+      text(60, latY - 5, "LAT", "black");
+
+      line(0, hatY, svgWidth, hatY, "orange", 2);
+      text(60, hatY - 5, "HAT", "orange");
+
+      wave(0, waterY, svgWidth);
+      text(60, waterY - 5, "HOT", "blue");
+
+      /* ===== Bridge ===== */
+
+      let bridgeBottomY = y(bridgeTotalHeight);
+
+      drawBridge(bridgeBottomY, svgWidth);
+
+      /* ===== Boat ===== */
+
+      drawBoat(waterY, airDraft, draft, scale);
+
+      /* ===== Seabed ===== */
+
+      let seabedY = y(sounding);
+      drawSeabed(seabedY, svgWidth);
+
+      /* ===== Arrows ===== */
+
+      drawArrow(svgWidth - 40, y(hat), bridgeBottomY, bridgeClearance + "m");
+      drawArrow(svgWidth - 80, latY, hatY, hat + "m");
+      drawArrow(svgWidth - 120, waterY, y(hot + airDraft), airDraft + "m");
+      drawArrow(svgWidth - 160, waterY, y(hot - draft), draft + "m");
+
+      /* ===== Calculations ===== */
+
+      let availableAir = bridgeClearance + hat - hot;
+      let requiredAir = airDraft + airSafety;
+
+      let availableDepth = sounding + hot;
+      let requiredDepth = draft + depthSafety;
+
+      if (requiredAir > availableAir)
         result("bridgeResult", "❌ You won't get under the bridge", "red");
-      } else {
+      else
         result("bridgeResult", "✅ You should get under the bridge", "green");
-      }
+
+      if (requiredDepth > availableDepth)
+        result("groundResult", "❌ You'll run aground", "red");
+      else
+        result("groundResult", "✅ You shouldn't run aground", "green");
+
     }
 
-    function line(x1, y1, x2, y2, color, width, label) {
-      const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      l.setAttribute("x1", x1);
-      l.setAttribute("y1", y1);
-      l.setAttribute("x2", x2);
-      l.setAttribute("y2", y2);
-      l.setAttribute("stroke", color);
-      l.setAttribute("stroke-width", width);
+    /* ===== Drawing Helpers ===== */
+
+    function val(id) { return document.getElementById(id).value; }
+
+    function line(x1, y1, x2, y2, c, w) {
+      let l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+      l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+      l.setAttribute("stroke", c); l.setAttribute("stroke-width", w);
       svg.appendChild(l);
-
-      if (label) {
-        text(10, y1 + 5, label, color);
-      }
     }
 
-    function rect(x, y, w, h, color) {
-      const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      r.setAttribute("x", x);
-      r.setAttribute("y", y);
-      r.setAttribute("width", w);
-      r.setAttribute("height", h);
-      r.setAttribute("fill", color);
-      svg.appendChild(r);
-    }
-
-    function text(x, y, str, color) {
-      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      t.setAttribute("x", x);
-      t.setAttribute("y", y);
-      t.setAttribute("fill", color);
+    function text(x, y, str, c) {
+      let t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", x); t.setAttribute("y", y);
+      t.setAttribute("fill", c);
+      t.setAttribute("font-size", "12");
       t.textContent = str;
       svg.appendChild(t);
     }
 
-    function wave(x, y, width) {
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      let d = `M ${x} ${y}`;
-      for (let i = 0; i < width; i += 20) {
-        d += ` q 10 -10 20 0`;
-      }
+    function drawBridge(y, w) {
+      let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      let mid = w / 2;
+      let d = `M${mid - 200} ${y}
+Q${mid} ${y - 80} ${mid + 200} ${y}
+L${mid + 200} ${y + 20}
+L${mid - 200} ${y + 20} Z`;
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "#555");
+      svg.appendChild(path);
+    }
+
+    function drawBoat(waterY, airDraft, draft, scale) {
+
+      let mid = svg.clientWidth / 2;
+      let mastTop = waterY - airDraft * scale;
+
+      /* Hull above HOT */
+      let hull = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+      hull.setAttribute("cx", mid);
+      hull.setAttribute("cy", waterY - 15);
+      hull.setAttribute("rx", 60);
+      hull.setAttribute("ry", 20);
+      hull.setAttribute("fill", "#777");
+      svg.appendChild(hull);
+
+      /* Mast */
+      line(mid, mastTop, mid, waterY - 35, "#333", 4);
+
+      /* Keel below HOT */
+      let keelWidth = 20;
+      let keelHeight = draft * scale;
+      let keel = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      keel.setAttribute("x", mid - keelWidth / 2);
+      keel.setAttribute("y", waterY);
+      keel.setAttribute("width", keelWidth);
+      keel.setAttribute("height", keelHeight);
+      keel.setAttribute("fill", "#444");
+      svg.appendChild(keel);
+    }
+
+    function drawSeabed(y, w) {
+      let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      let d = `M0 ${y} Q${w / 4} ${y + 10} ${w / 2} ${y} T${w} ${y}`;
+      path.setAttribute("d", d);
+      path.setAttribute("stroke", "#654321");
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke-width", "3");
+      svg.appendChild(path);
+    }
+
+    function drawArrow(x, y1, y2, label) {
+      line(x, y1, x, y2, "#0066cc", 2);
+      line(x - 5, y1, x + 5, y1, "#0066cc", 2);
+      line(x - 5, y2, x + 5, y2, "#0066cc", 2);
+      text(x + 8, (y1 + y2) / 2, label, "#0066cc");
+    }
+
+    function wave(x, y, w) {
+      let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      let d = `M${x} ${y}`;
+      for (let i = 0; i < w; i += 40)
+        d += ` q20 -8 40 0`;
       path.setAttribute("d", d);
       path.setAttribute("stroke", "blue");
       path.setAttribute("fill", "none");
@@ -239,10 +331,10 @@
       svg.appendChild(path);
     }
 
-    function result(id, textValue, color) {
-      const el = document.getElementById(id);
-      el.textContent = textValue;
-      el.style.color = color;
+    function result(id, t, c) {
+      let el = document.getElementById(id);
+      el.textContent = t;
+      el.style.color = c;
     }
 
     draw();
