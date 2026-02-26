@@ -157,10 +157,17 @@
         0
       );
 
+      /* 
+         For rendering only, sounding must be inverted on the vertical scale:
+         Sounding of 3m (depth) should render at -3m relative to LAT.
+         Drying height of -2m should render at +2m.
+      */
+      let renderedSounding = -sounding;
+
       let lowestPoint = Math.min(
         0,
         hot - draft,
-        sounding,
+        renderedSounding,
         -5
       );
 
@@ -210,7 +217,7 @@
 
       /* ===== Seabed ===== */
 
-      let seabedY = y(sounding);
+      let seabedY = y(renderedSounding);
       drawSeabed(seabedY, svgWidth);
 
       /* ===== Arrows ===== */
